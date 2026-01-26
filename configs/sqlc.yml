@@ -1,0 +1,22 @@
+version: "2"
+sql:
+  - engine: postgresql    # SQL variant
+    schema: "../migrations/" # path to schema file / migrations dir
+    queries: "../pkg/database/"   # path to annotated queries (to be transformed into Go methods)
+    gen:
+      go:
+        out: "../pkg/database/"                        # path to generated code - I prefer to keep this the same as the queries
+        sql_package: pgx/v5
+        #package:                               # name of the generated Go package (optional)
+        emit_empty_slices: true                # return empty slices instead of `nil` for :many queries (optional)
+        emit_pointers_for_null_types: true     # return pointers instead of sql.NullString, sql.NullInt32, etc. (optional)
+        emit_sql_as_comment: true
+        emit_json_tags: true
+        output_db_file_name: db.sql.go         # adds *.sql.go suffix - defaults to db.go (optional)
+        output_models_file_name: models.sql.go # adds *.sql.go suffix - defaults to db.go (optional)
+        query_parameter_limit: 0               # adds all parameters to struct
+        overrides:
+          - db_type: "pg_catalog.timestamptz"
+            go_type: "time.Time"
+          - db_type: pg_catalog.timestamp
+            go_type: time.Time
