@@ -93,10 +93,11 @@ func (auth *Auth) Login(c echo.Context) error {
 
 func (auth *Auth) Register(c echo.Context) error {
 	var form struct {
-		DisplayName string `form:"display_name"`
-		Password    string `form:"password"`
-		FirstName   string `form:"first_name"`
-		LastName    string `form:"last_name"`
+		DisplayName string `json:"display_name"`
+		Password    string `json:"password"`
+		FirstName   string `json:"first_name"`
+		LastName    string `json:"last_name"`
+		UserKey     string `json:"user_key"`
 	}
 
 	if err := c.Bind(&form); err != nil {
@@ -118,16 +119,14 @@ func (auth *Auth) Register(c echo.Context) error {
 		panic(err)
 	}
 
-	userId, err := auth.queries.CreateUser(c.Request().Context(), database.CreateUserParams{
+	user, err := auth.queries.CreateUser(c.Request().Context(), database.CreateUserParams{
 		DisplayName:  form.DisplayName,
 		FirstName:    form.FirstName,
 		LastName:     form.LastName,
 		PasswordHash: hash,
-		//UserKey:      u,
-		PfpUrl: &defaultPfp,
+		UserKey:      []byte(form.UserKey),
+		PfpUrl:       &defaultPfp,
 	})
-
-	user, err := auth.queries.FindUserByID(c.Request().Context(), database.FindUserByIDParams{UserID: userId})
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
 			return echo.NewHTTPError(http.StatusConflict, "username already exists")
@@ -140,9 +139,10 @@ func (auth *Auth) Register(c echo.Context) error {
 		LastName:        form.LastName,
 		ProfileImageURL: defaultPfp,
 		RegisteredClaims: jwt.RegisteredClaims{
-			Subject:  strconv.FormatInt(userId, 10),
+			Subject:  strconv.FormatInt(user.UserID, 10),
 			Issuer:   "api.getflick.chat",
 			Audience: jwt.ClaimStrings{"api.getflick.chat"},
+			IssuedAt: jwt.NewNumericDate(time.Now()),
 		},
 	})
 	if err != nil {
@@ -151,16 +151,10 @@ func (auth *Auth) Register(c echo.Context) error {
 
 	return c.JSON(http.StatusCreated, map[string]any{
 		"access_token": token,
-		"user_id":      userId,
+		"user_id":      user.UserID,
 		"display_name": user.DisplayName,
 		"pfp_url":      user.PfpUrl,
 	})
-
-}
-
-func (auth *Auth) Logout(c echo.Context) error {
-	// Logout current user
-	return c.NoContent(http.StatusOK)
 }
 
 func (auth *Auth) Recover(c echo.Context) error {

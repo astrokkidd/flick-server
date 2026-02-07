@@ -5,13 +5,15 @@
 package database
 
 import (
+	"time"
+
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Chat struct {
-	ChatID        int64              `json:"chat_id"`
-	LastMessageID *int64             `json:"last_message_id"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	ChatID        int64     `json:"chat_id"`
+	LastMessageID *int64    `json:"last_message_id"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 type ChatParticipant struct {
@@ -30,26 +32,27 @@ type FriendRequest struct {
 }
 
 type Message struct {
-	MessageID  int64              `json:"message_id"`
-	SenderID   int64              `json:"sender_id"`
-	ChatID     int64              `json:"chat_id"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	CypherText []byte             `json:"cypher_text"`
-	Nonce      []byte             `json:"nonce"`
+	MessageID  int64     `json:"message_id"`
+	SenderID   int64     `json:"sender_id"`
+	ChatID     int64     `json:"chat_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	CypherText []byte    `json:"cypher_text"`
+	Nonce      []byte    `json:"nonce"`
 }
 
 type User struct {
-	UserID       int64              `json:"user_id"`
-	DisplayName  string             `json:"display_name"`
-	PasswordHash string             `json:"password_hash"`
-	FirstName    string             `json:"first_name"`
-	PfpUrl       *string            `json:"pfp_url"`
-	LastName     string             `json:"last_name"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UserKey      []byte             `json:"user_key"`
+	UserID       int64     `json:"user_id"`
+	DisplayName  string    `json:"display_name"`
+	PasswordHash string    `json:"password_hash"`
+	FirstName    string    `json:"first_name"`
+	PfpUrl       *string   `json:"pfp_url"`
+	LastName     string    `json:"last_name"`
+	CreatedAt    time.Time `json:"created_at"`
+	UserKey      []byte    `json:"user_key"`
 }
 
 type UserFriendship struct {
-	UserID   int64 `json:"user_id"`
-	FriendID int64 `json:"friend_id"`
+	UserID       int64     `json:"user_id"`
+	FriendID     int64     `json:"friend_id"`
+	FriendshipTs time.Time `json:"friendship_ts"`
 }

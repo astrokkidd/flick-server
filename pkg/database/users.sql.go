@@ -20,7 +20,7 @@ INSERT INTO users (
 ) VALUES (
     $1, $2, $3, $4, $5, $6
 )
-RETURNING user_id
+RETURNING user_id, display_name, pfp_url
 `
 
 type CreateUserParams struct {
@@ -30,6 +30,12 @@ type CreateUserParams struct {
 	PasswordHash string  `json:"password_hash"`
 	UserKey      []byte  `json:"user_key"`
 	PfpUrl       *string `json:"pfp_url"`
+}
+
+type CreateUserRow struct {
+	UserID      int64   `json:"user_id"`
+	DisplayName string  `json:"display_name"`
+	PfpUrl      *string `json:"pfp_url"`
 }
 
 // CreateUser
@@ -44,8 +50,8 @@ type CreateUserParams struct {
 //	) VALUES (
 //	    $1, $2, $3, $4, $5, $6
 //	)
-//	RETURNING user_id
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (int64, error) {
+//	RETURNING user_id, display_name, pfp_url
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
 	row := q.db.QueryRow(ctx, createUser,
 		arg.DisplayName,
 		arg.FirstName,
@@ -54,9 +60,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (int64, 
 		arg.UserKey,
 		arg.PfpUrl,
 	)
-	var user_id int64
-	err := row.Scan(&user_id)
-	return user_id, err
+	var i CreateUserRow
+	err := row.Scan(&i.UserID, &i.DisplayName, &i.PfpUrl)
+	return i, err
 }
 
 const findUserByDisplayName = `-- name: FindUserByDisplayName :one

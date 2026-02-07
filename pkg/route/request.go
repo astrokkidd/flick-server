@@ -1,10 +1,12 @@
 package route
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/astrokkidd/flick/pkg/database"
 	"github.com/astrokkidd/flick/pkg/identity"
@@ -16,6 +18,15 @@ type Request struct {
 	queries      *database.Queries
 	conn         *pgx.Conn
 	tokenHandler *identity.TokenHandler
+}
+
+type FriendResponse struct {
+	UserID       int64  `json:"user_id"`
+	PfpURL       string `json:"pfp_url"`
+	DisplayName  string `json:"display_name"`
+	FirstName    string `json:"first_name"`
+	LastName     string `json:"last_name"`
+	FriendshipTs string `json:"friendship_ts"` // string for React
 }
 
 func NewRequestHandler(queries *database.Queries, conn *pgx.Conn, tokenHandler *identity.TokenHandler) Request {
@@ -152,9 +163,22 @@ func (request *Request) GetFriends(c echo.Context) error {
 	if err != nil {
 		return echo.ErrInternalServerError.WithInternal(err)
 	}
-	fmt.Println("DEBUG result:", result)
 
-	return c.JSON(http.StatusOK, result)
+	friends := make([]FriendResponse, len(result))
+	for i, r := range result {
+		friends[i] = FriendResponse{
+			UserID:       r.UserID,
+			PfpURL:       *r.PfpUrl,
+			DisplayName:  r.DisplayName,
+			FirstName:    r.FirstName,
+			LastName:     r.LastName,
+			FriendshipTs: r.FriendshipTs.Format(time.RFC3339), // ISO string
+		}
+	}
+	b, _ := json.Marshal(friends)
+	fmt.Println("DEBUG JSON:", string(b))
+
+	return c.JSON(http.StatusOK, friends)
 }
 
 func (request *Request) AcceptRequest(c echo.Context) error {

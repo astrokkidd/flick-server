@@ -16,7 +16,7 @@ sql:
         output_models_file_name: models.sql.go # adds *.sql.go suffix - defaults to db.go (optional)
         query_parameter_limit: 0               # adds all parameters to struct
         overrides:
-          - db_type: "pg_catalog.timestamptz"
+          - db_type: "timestamptz"
             go_type: "time.Time"
-          - db_type: pg_catalog.timestamp
-            go_type: time.Time
+          - db_type: "timestamp"
+            go_type: "time.Time"

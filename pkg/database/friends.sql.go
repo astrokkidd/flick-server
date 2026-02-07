@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"time"
 )
 
 const areUsersFriends = `-- name: AreUsersFriends :one
@@ -198,10 +199,11 @@ func (q *Queries) GetUserByRequestID(ctx context.Context, arg GetUserByRequestID
 }
 
 const listAllFriends = `-- name: ListAllFriends :many
-SELECT u.user_id, u.display_name, u.pfp_url
+SELECT u.user_id, u.pfp_url, u.display_name, u.first_name, u.last_name, f.friendship_ts
 FROM user_friendships f
 JOIN users u ON u.user_id = f.friend_id
 WHERE f.user_id = $1
+ORDER BY f.friendship_ts DESC
 `
 
 type ListAllFriendsParams struct {
@@ -209,17 +211,21 @@ type ListAllFriendsParams struct {
 }
 
 type ListAllFriendsRow struct {
-	UserID      int64   `json:"user_id"`
-	DisplayName string  `json:"display_name"`
-	PfpUrl      *string `json:"pfp_url"`
+	UserID       int64     `json:"user_id"`
+	PfpUrl       *string   `json:"pfp_url"`
+	DisplayName  string    `json:"display_name"`
+	FirstName    string    `json:"first_name"`
+	LastName     string    `json:"last_name"`
+	FriendshipTs time.Time `json:"friendship_ts"`
 }
 
 // ListAllFriends
 //
-//	SELECT u.user_id, u.display_name, u.pfp_url
+//	SELECT u.user_id, u.pfp_url, u.display_name, u.first_name, u.last_name, f.friendship_ts
 //	FROM user_friendships f
 //	JOIN users u ON u.user_id = f.friend_id
 //	WHERE f.user_id = $1
+//	ORDER BY f.friendship_ts DESC
 func (q *Queries) ListAllFriends(ctx context.Context, arg ListAllFriendsParams) ([]ListAllFriendsRow, error) {
 	rows, err := q.db.Query(ctx, listAllFriends, arg.UserID)
 	if err != nil {
@@ -229,7 +235,14 @@ func (q *Queries) ListAllFriends(ctx context.Context, arg ListAllFriendsParams) 
 	items := []ListAllFriendsRow{}
 	for rows.Next() {
 		var i ListAllFriendsRow
-		if err := rows.Scan(&i.UserID, &i.DisplayName, &i.PfpUrl); err != nil {
+		if err := rows.Scan(
+			&i.UserID,
+			&i.PfpUrl,
+			&i.DisplayName,
+			&i.FirstName,
+			&i.LastName,
+			&i.FriendshipTs,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

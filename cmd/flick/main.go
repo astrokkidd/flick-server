@@ -51,7 +51,6 @@ func main() {
 	authHandler := route.NewAuthHandler(queries, &tokenHandler)
 	api.POST("/auth/register", authHandler.Register)
 	api.POST("/auth/login", authHandler.Login)
-	api.POST("/auth/logout", authHandler.Logout)
 
 	//-- USER --//
 	userHandler := route.NewUserHandler(queries, conn, &tokenHandler)

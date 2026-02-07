@@ -54,10 +54,11 @@ VALUES ($1, $2), ($2, $1)
 ON CONFLICT DO NOTHING;
 
 -- name: ListAllFriends :many
-SELECT u.user_id, u.display_name, u.pfp_url
+SELECT u.user_id, u.pfp_url, u.display_name, u.first_name, u.last_name, f.friendship_ts
 FROM user_friendships f
 JOIN users u ON u.user_id = f.friend_id
-WHERE f.user_id = $1;
+WHERE f.user_id = $1
+ORDER BY f.friendship_ts DESC;
 
 -- name: ListReceivedFriendRequestsWithUser :many
 SELECT fr.request_id,

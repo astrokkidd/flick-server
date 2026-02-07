@@ -7,6 +7,7 @@ package database
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 )
@@ -195,13 +196,76 @@ func (q *Queries) IsUserInChat(ctx context.Context, arg IsUserInChatParams) (boo
 	return is_participant, err
 }
 
+const listChatParticipants = `-- name: ListChatParticipants :many
+SELECT
+  cp.chat_id,
+  u.pfp_url,
+  u.user_id,
+  u.first_name,
+  u.last_name
+FROM chat_participants cp
+JOIN users u
+  ON u.user_id = cp.user_id
+WHERE cp.chat_id = ANY($1::bigint[])
+`
+
+type ListChatParticipantsParams struct {
+	Column1 []int64 `json:"column_1"`
+}
+
+type ListChatParticipantsRow struct {
+	ChatID    int64   `json:"chat_id"`
+	PfpUrl    *string `json:"pfp_url"`
+	UserID    int64   `json:"user_id"`
+	FirstName string  `json:"first_name"`
+	LastName  string  `json:"last_name"`
+}
+
+// ListChatParticipants
+//
+//	SELECT
+//	  cp.chat_id,
+//	  u.pfp_url,
+//	  u.user_id,
+//	  u.first_name,
+//	  u.last_name
+//	FROM chat_participants cp
+//	JOIN users u
+//	  ON u.user_id = cp.user_id
+//	WHERE cp.chat_id = ANY($1::bigint[])
+func (q *Queries) ListChatParticipants(ctx context.Context, arg ListChatParticipantsParams) ([]ListChatParticipantsRow, error) {
+	rows, err := q.db.Query(ctx, listChatParticipants, arg.Column1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListChatParticipantsRow{}
+	for rows.Next() {
+		var i ListChatParticipantsRow
+		if err := rows.Scan(
+			&i.ChatID,
+			&i.PfpUrl,
+			&i.UserID,
+			&i.FirstName,
+			&i.LastName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listChatsWithParticipant = `-- name: ListChatsWithParticipant :many
 SELECT 
   c.chat_id,
   c.last_message_id,
   m.message_id,
   m.sender_id,
-  m.created_at,
+  c.created_at,
   -- all participants except the requesting user
   (
     SELECT ARRAY_AGG(cp2.user_id ORDER BY cp2.user_id)
@@ -222,12 +286,12 @@ type ListChatsWithParticipantParams struct {
 }
 
 type ListChatsWithParticipantRow struct {
-	ChatID              int64              `json:"chat_id"`
-	LastMessageID       *int64             `json:"last_message_id"`
-	MessageID           *int64             `json:"message_id"`
-	SenderID            *int64             `json:"sender_id"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	OtherParticipantIds interface{}        `json:"other_participant_ids"`
+	ChatID              int64       `json:"chat_id"`
+	LastMessageID       *int64      `json:"last_message_id"`
+	MessageID           *int64      `json:"message_id"`
+	SenderID            *int64      `json:"sender_id"`
+	CreatedAt           time.Time   `json:"created_at"`
+	OtherParticipantIds interface{} `json:"other_participant_ids"`
 }
 
 // ListChatsWithParticipant
@@ -237,7 +301,7 @@ type ListChatsWithParticipantRow struct {
 //	  c.last_message_id,
 //	  m.message_id,
 //	  m.sender_id,
-//	  m.created_at,
+//	  c.created_at,
 //	  -- all participants except the requesting user
 //	  (
 //	    SELECT ARRAY_AGG(cp2.user_id ORDER BY cp2.user_id)
@@ -267,6 +331,83 @@ func (q *Queries) ListChatsWithParticipant(ctx context.Context, arg ListChatsWit
 			&i.SenderID,
 			&i.CreatedAt,
 			&i.OtherParticipantIds,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChatsWithUser = `-- name: ListChatsWithUser :many
+SELECT
+  c.chat_id,
+
+  m.message_id,
+  m.sender_id,
+  m.created_at,
+  m.cypher_text,
+  m.nonce
+
+FROM chats c
+JOIN chat_participants cp
+  ON cp.chat_id = c.chat_id
+ AND cp.user_id = $1
+LEFT JOIN messages m
+  ON m.message_id = c.last_message_id
+ORDER BY m.created_at DESC NULLS LAST
+`
+
+type ListChatsWithUserParams struct {
+	UserID int64 `json:"user_id"`
+}
+
+type ListChatsWithUserRow struct {
+	ChatID     int64              `json:"chat_id"`
+	MessageID  *int64             `json:"message_id"`
+	SenderID   *int64             `json:"sender_id"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	CypherText []byte             `json:"cypher_text"`
+	Nonce      []byte             `json:"nonce"`
+}
+
+// ListChatsWithUser
+//
+//	SELECT
+//	  c.chat_id,
+//
+//	  m.message_id,
+//	  m.sender_id,
+//	  m.created_at,
+//	  m.cypher_text,
+//	  m.nonce
+//
+//	FROM chats c
+//	JOIN chat_participants cp
+//	  ON cp.chat_id = c.chat_id
+//	 AND cp.user_id = $1
+//	LEFT JOIN messages m
+//	  ON m.message_id = c.last_message_id
+//	ORDER BY m.created_at DESC NULLS LAST
+func (q *Queries) ListChatsWithUser(ctx context.Context, arg ListChatsWithUserParams) ([]ListChatsWithUserRow, error) {
+	rows, err := q.db.Query(ctx, listChatsWithUser, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListChatsWithUserRow{}
+	for rows.Next() {
+		var i ListChatsWithUserRow
+		if err := rows.Scan(
+			&i.ChatID,
+			&i.MessageID,
+			&i.SenderID,
+			&i.CreatedAt,
+			&i.CypherText,
+			&i.Nonce,
 		); err != nil {
 			return nil, err
 		}

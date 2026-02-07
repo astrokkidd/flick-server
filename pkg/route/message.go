@@ -64,8 +64,8 @@ func (message *Message) CreateMessage(c echo.Context) error {
 
 	var body struct {
 		Content    string `json:"content"`
-		CypherText string ``
-		Nonce      string ``
+		CypherText string `json:"cypher_text"`
+		Nonce      string `json:"nonce"`
 		ChatID     int64  `param:"id"`
 	}
 	if err := c.Bind(&body); err != nil {

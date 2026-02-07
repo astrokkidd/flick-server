@@ -21,7 +21,7 @@ INSERT INTO users (
 ) VALUES (
     @display_name, @first_name, @last_name, @password_hash, @user_key, @pfp_url
 )
-RETURNING user_id;
+RETURNING user_id, display_name, pfp_url;
 
 -- name: UpdateUserPfp :exec
 UPDATE users

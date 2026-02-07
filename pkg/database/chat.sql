@@ -44,7 +44,7 @@ SELECT
   c.last_message_id,
   m.message_id,
   m.sender_id,
-  m.created_at,
+  c.created_at,
   -- all participants except the requesting user
   (
     SELECT ARRAY_AGG(cp2.user_id ORDER BY cp2.user_id)
@@ -58,6 +58,38 @@ JOIN chat_participants cp
  AND cp.user_id = $1
 LEFT JOIN messages m 
   ON m.message_id = c.last_message_id;
+
+
+-- name: ListChatsWithUser :many
+SELECT
+  c.chat_id,
+
+  m.message_id,
+  m.sender_id,
+  m.created_at,
+  m.cypher_text,
+  m.nonce
+
+FROM chats c
+JOIN chat_participants cp
+  ON cp.chat_id = c.chat_id
+ AND cp.user_id = $1
+LEFT JOIN messages m
+  ON m.message_id = c.last_message_id
+ORDER BY m.created_at DESC NULLS LAST;
+
+-- name: ListChatParticipants :many
+SELECT
+  cp.chat_id,
+  u.pfp_url,
+  u.user_id,
+  u.first_name,
+  u.last_name
+FROM chat_participants cp
+JOIN users u
+  ON u.user_id = cp.user_id
+WHERE cp.chat_id = ANY($1::bigint[]);
+
 
 -- name: UpdateChatLastMessage :exec
 UPDATE chats

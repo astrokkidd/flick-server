@@ -56,6 +56,7 @@ CREATE TABLE messages (
 CREATE TABLE user_friendships (
   user_id   BIGINT NOT NULL,
   friend_id BIGINT NOT NULL,
+  friendship_ts TIMESTAMPTZ  NOT NULL DEFAULT now(),
   CONSTRAINT no_self_friend CHECK (user_id <> friend_id),
   PRIMARY KEY (user_id, friend_id),
   FOREIGN KEY (user_id)   REFERENCES users(user_id) ON DELETE CASCADE,

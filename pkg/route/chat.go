@@ -2,6 +2,7 @@ package route
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/astrokkidd/flick/pkg/database"
 	"github.com/astrokkidd/flick/pkg/identity"
@@ -13,6 +14,31 @@ type Chat struct {
 	queries      *database.Queries
 	conn         *pgx.Conn
 	tokenHandler *identity.TokenHandler
+}
+
+type MessageStructure struct {
+	MessageID  int64     `json:"message_id"`
+	SenderID   int64     `json:"sender_id"`
+	CreatedAt  time.Time `json:"created_at"`
+	CypherText []byte    `json:"cypher_text"`
+	Nonce      []byte    `json:"nonce"`
+}
+
+type ParticipantStructure struct {
+	UserID    int64  `json:"user_id"`
+	PfpUrl    string `json:"pfp_url"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+type ChatStructure struct {
+	ChatID       int64                  `json:"chat_id"`
+	LastMessage  *MessageStructure      `json:"last_message,omitempty"`
+	Participants []ParticipantStructure `json:"participants"`
+}
+
+type ResponseStructure struct {
+	Chats []ChatStructure `json:"chats"`
 }
 
 func NewChatHandler(queries *database.Queries, conn *pgx.Conn, tokenHandler *identity.TokenHandler) Chat {
@@ -111,21 +137,72 @@ func (chat *Chat) GetChats(c echo.Context) error {
 
 	qtx := chat.queries.WithTx(tx)
 
-	listChatsWithParticipantParams := database.ListChatsWithParticipantParams{
+	listChatsWithUserParams := database.ListChatsWithUserParams{
 		UserID: uid,
 	}
 
-	chats, err := qtx.ListChatsWithParticipant(ctx, listChatsWithParticipantParams)
+	chats, err := qtx.ListChatsWithUser(ctx, listChatsWithUserParams)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "chats query failed")
+	}
+
+	//if chats len == 0 -> return empty json success
+
+	chatMap := make(map[int64]*ChatStructure, len(chats))
+	chatIDs := make([]int64, 0, len(chats))
+
+	for _, r := range chats {
+		cs := &ChatStructure{
+			ChatID:       r.ChatID,
+			Participants: []ParticipantStructure{},
+		}
+
+		if r.MessageID != nil {
+			cs.LastMessage = &MessageStructure{
+				MessageID:  *r.MessageID,
+				SenderID:   *r.SenderID,
+				CreatedAt:  r.CreatedAt.Time,
+				CypherText: r.CypherText,
+				Nonce:      r.Nonce,
+			}
+		}
+
+		chatMap[r.ChatID] = cs
+		chatIDs = append(chatIDs, r.ChatID)
+	}
+
+	listChatParticipants := database.ListChatParticipantsParams{
+		Column1: chatIDs,
+	}
+
+	participants, err := qtx.ListChatParticipants(ctx, listChatParticipants)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusInternalServerError, "participants query failed")
+	}
+
+	for _, p := range participants {
+		chatMap[p.ChatID].Participants = append(
+			chatMap[p.ChatID].Participants,
+			ParticipantStructure{
+				PfpUrl:    *p.PfpUrl,
+				UserID:    p.UserID,
+				FirstName: p.FirstName,
+				LastName:  p.LastName,
+			},
+		)
+	}
+
+	result := make([]ChatStructure, 0, len(chatMap))
+	for _, c := range chatMap {
+		result = append(result, *c)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, "commit failed")
 	}
 
-	return c.JSON(http.StatusOK, map[string]any{
-		"chats": chats,
+	return c.JSON(http.StatusOK, ResponseStructure{
+		Chats: result,
 	})
 }
 
