@@ -124,7 +124,6 @@ func (auth *Auth) Register(c echo.Context) error {
 		FirstName:    form.FirstName,
 		LastName:     form.LastName,
 		PasswordHash: hash,
-		UserKey:      []byte(form.UserKey),
 		PfpUrl:       &defaultPfp,
 	})
 	if err != nil {

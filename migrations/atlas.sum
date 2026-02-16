@@ -1,4 +1,4 @@
-h1:XLkEAYPMkFASKDAZHxEF0MlHkRfT6hM9iUDSJO86vM0=
+h1:YZXGJn2cj9k8L8m9WpoJ8EOW4Bye0f+VaqGCYfg74gw=
 20250802210913_init.sql h1:t/ITZq+wfnYuc8fikWZ6xxO3SCfRXVWf0/k20tOEpnc=
 20250802222326_messages_altered_timestamp_not_null.sql h1:c+lU8SbC1TcXZYWnle3F2XaoCRWK6W4rvAc4Dj/UdUA=
 20250803041650_users_password_argon2.sql h1:TgR0qUqbzaWHmQwx+9qFKgd85xrGFpe9rbeOrJ+dUfw=
@@ -18,3 +18,4 @@ h1:XLkEAYPMkFASKDAZHxEF0MlHkRfT6hM9iUDSJO86vM0=
 20260124080349_updated_users.sql h1:y15627jR4JBoxNU5IHwZyelCjanlFmDEKMsJ/He19BE=
 20260126030603_updated_schema.sql h1:tIVf615foWUY7YN2rBWKBqeO+B4AdejcajuntUSoZqg=
 20260202170235_added_friendship_ts.sql h1:eGFO8gCOhS28a+K3S49u5mTAZz7VAN8UYFSmAoY3ql4=
+20260213201542_dropped_nonce_and_ukey.sql h1:yEnk7Yv7wiaxGzP1WiZhZfHqofnda0l52aoclQ77Tmg=

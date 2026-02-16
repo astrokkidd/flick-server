@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/astrokkidd/flick/pkg/crypto"
 	"github.com/astrokkidd/flick/pkg/database"
 	"github.com/astrokkidd/flick/pkg/identity"
 	"github.com/astrokkidd/flick/pkg/route"
@@ -26,7 +27,6 @@ func init() {
 }
 
 func main() {
-	//url := "postgres://postgres:admin@localhost:5432/flick"
 	ctx := context.Background()
 
 	conn, err := pgx.Connect(ctx, cfg.PostgresUrl)
@@ -36,6 +36,10 @@ func main() {
 	defer conn.Close(ctx)
 
 	queries := database.New(conn)
+
+	if err := crypto.Init(cfg.MessageEncryptionKey); err != nil {
+		log.Fatal("encryption init failed:", err)
+	}
 
 	tokenHandler := identity.NewTokenHandler(cfg.JwtSecret)
 

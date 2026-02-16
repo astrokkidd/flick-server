@@ -57,7 +57,8 @@ JOIN chat_participants cp
   ON cp.chat_id = c.chat_id
  AND cp.user_id = $1
 LEFT JOIN messages m 
-  ON m.message_id = c.last_message_id;
+  ON m.message_id = c.last_message_id
+ORDER BY m.created_at DESC NULLS LAST;
 
 
 -- name: ListChatsWithUser :many
@@ -67,16 +68,19 @@ SELECT
   m.message_id,
   m.sender_id,
   m.created_at,
-  m.cypher_text,
-  m.nonce
-
+  m.cypher_text
+  
 FROM chats c
 JOIN chat_participants cp
   ON cp.chat_id = c.chat_id
  AND cp.user_id = $1
 LEFT JOIN messages m
   ON m.message_id = c.last_message_id
-ORDER BY m.created_at DESC NULLS LAST;
+ORDER BY
+  m.created_at DESC NULLS LAST,
+  c.last_message_id DESC,
+  c.chat_id DESC;
+
 
 -- name: ListChatParticipants :many
 SELECT
@@ -117,3 +121,15 @@ SELECT EXISTS (
   WHERE cp.chat_id = $1
     AND cp.user_id = $2
 ) AS is_participant;
+
+-- name: GetNumberUnreadMessages :one
+SELECT COUNT(*)::bigint
+FROM messages m
+JOIN chat_participants cp
+  ON cp.chat_id = m.chat_id
+WHERE cp.chat_id = $1
+  AND cp.user_id = $2
+  AND (
+        cp.last_read_message_id IS NULL
+        OR m.message_id > cp.last_read_message_id
+      );

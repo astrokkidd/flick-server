@@ -7,11 +7,12 @@ package database
 
 import (
 	"context"
+	"time"
 )
 
 const createMessage = `-- name: CreateMessage :one
-INSERT INTO messages (chat_id, sender_id, cypher_text, nonce)
-VALUES ($1, $2, $3, $4)
+INSERT INTO messages (chat_id, sender_id, cypher_text)
+VALUES ($1, $2, $3)
 RETURNING message_id
 `
 
@@ -19,30 +20,25 @@ type CreateMessageParams struct {
 	ChatID     int64  `json:"chat_id"`
 	SenderID   int64  `json:"sender_id"`
 	CypherText []byte `json:"cypher_text"`
-	Nonce      []byte `json:"nonce"`
 }
 
 // CreateMessage
 //
-//	INSERT INTO messages (chat_id, sender_id, cypher_text, nonce)
-//	VALUES ($1, $2, $3, $4)
+//	INSERT INTO messages (chat_id, sender_id, cypher_text)
+//	VALUES ($1, $2, $3)
 //	RETURNING message_id
 func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (int64, error) {
-	row := q.db.QueryRow(ctx, createMessage,
-		arg.ChatID,
-		arg.SenderID,
-		arg.CypherText,
-		arg.Nonce,
-	)
+	row := q.db.QueryRow(ctx, createMessage, arg.ChatID, arg.SenderID, arg.CypherText)
 	var message_id int64
 	err := row.Scan(&message_id)
 	return message_id, err
 }
 
 const getMessages = `-- name: GetMessages :many
-SELECT m.message_id, m.sender_id, m.cypher_text
+SELECT m.message_id, m.sender_id, m.cypher_text, m.created_at
 FROM messages m
 WHERE m.chat_id = $1
+ORDER BY m.created_at DESC
 LIMIT $2
 `
 
@@ -52,16 +48,18 @@ type GetMessagesParams struct {
 }
 
 type GetMessagesRow struct {
-	MessageID  int64  `json:"message_id"`
-	SenderID   int64  `json:"sender_id"`
-	CypherText []byte `json:"cypher_text"`
+	MessageID  int64     `json:"message_id"`
+	SenderID   int64     `json:"sender_id"`
+	CypherText []byte    `json:"cypher_text"`
+	CreatedAt  time.Time `json:"created_at"`
 }
 
 // GetMessages
 //
-//	SELECT m.message_id, m.sender_id, m.cypher_text
+//	SELECT m.message_id, m.sender_id, m.cypher_text, m.created_at
 //	FROM messages m
 //	WHERE m.chat_id = $1
+//	ORDER BY m.created_at DESC
 //	LIMIT $2
 func (q *Queries) GetMessages(ctx context.Context, arg GetMessagesParams) ([]GetMessagesRow, error) {
 	rows, err := q.db.Query(ctx, getMessages, arg.ChatID, arg.Limit)
@@ -72,7 +70,12 @@ func (q *Queries) GetMessages(ctx context.Context, arg GetMessagesParams) ([]Get
 	items := []GetMessagesRow{}
 	for rows.Next() {
 		var i GetMessagesRow
-		if err := rows.Scan(&i.MessageID, &i.SenderID, &i.CypherText); err != nil {
+		if err := rows.Scan(
+			&i.MessageID,
+			&i.SenderID,
+			&i.CypherText,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

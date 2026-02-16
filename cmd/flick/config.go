@@ -6,9 +6,10 @@ import (
 )
 
 type Config struct {
-	JwtSecret   identity.SecretKey `envconfig:"jwt_secret"`
-	PostgresUrl string             `envconfig:"postgres_url"`
-	ApiBaseUrl  string             `envconfig:"api_base_address"`
+	JwtSecret            identity.SecretKey `envconfig:"jwt_secret"`
+	PostgresUrl          string             `envconfig:"postgres_url"`
+	ApiBaseUrl           string             `envconfig:"api_base_address"`
+	MessageEncryptionKey string             `envconfig:"message_encryption_key"`
 }
 
 func (cfg *Config) Load() {

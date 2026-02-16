@@ -37,7 +37,6 @@ type Message struct {
 	ChatID     int64     `json:"chat_id"`
 	CreatedAt  time.Time `json:"created_at"`
 	CypherText []byte    `json:"cypher_text"`
-	Nonce      []byte    `json:"nonce"`
 }
 
 type User struct {
@@ -48,7 +47,6 @@ type User struct {
 	PfpUrl       *string   `json:"pfp_url"`
 	LastName     string    `json:"last_name"`
 	CreatedAt    time.Time `json:"created_at"`
-	UserKey      []byte    `json:"user_key"`
 }
 
 type UserFriendship struct {

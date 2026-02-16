@@ -166,6 +166,43 @@ func (q *Queries) GetChatByID(ctx context.Context, arg GetChatByIDParams) (GetCh
 	return i, err
 }
 
+const getNumberUnreadMessages = `-- name: GetNumberUnreadMessages :one
+SELECT COUNT(*)::bigint
+FROM messages m
+JOIN chat_participants cp
+  ON cp.chat_id = m.chat_id
+WHERE cp.chat_id = $1
+  AND cp.user_id = $2
+  AND (
+        cp.last_read_message_id IS NULL
+        OR m.message_id > cp.last_read_message_id
+      )
+`
+
+type GetNumberUnreadMessagesParams struct {
+	ChatID int64 `json:"chat_id"`
+	UserID int64 `json:"user_id"`
+}
+
+// GetNumberUnreadMessages
+//
+//	SELECT COUNT(*)::bigint
+//	FROM messages m
+//	JOIN chat_participants cp
+//	  ON cp.chat_id = m.chat_id
+//	WHERE cp.chat_id = $1
+//	  AND cp.user_id = $2
+//	  AND (
+//	        cp.last_read_message_id IS NULL
+//	        OR m.message_id > cp.last_read_message_id
+//	      )
+func (q *Queries) GetNumberUnreadMessages(ctx context.Context, arg GetNumberUnreadMessagesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, getNumberUnreadMessages, arg.ChatID, arg.UserID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const isUserInChat = `-- name: IsUserInChat :one
 
 SELECT EXISTS (
@@ -279,6 +316,7 @@ JOIN chat_participants cp
  AND cp.user_id = $1
 LEFT JOIN messages m 
   ON m.message_id = c.last_message_id
+ORDER BY m.created_at DESC NULLS LAST
 `
 
 type ListChatsWithParticipantParams struct {
@@ -315,6 +353,7 @@ type ListChatsWithParticipantRow struct {
 //	 AND cp.user_id = $1
 //	LEFT JOIN messages m
 //	  ON m.message_id = c.last_message_id
+//	ORDER BY m.created_at DESC NULLS LAST
 func (q *Queries) ListChatsWithParticipant(ctx context.Context, arg ListChatsWithParticipantParams) ([]ListChatsWithParticipantRow, error) {
 	rows, err := q.db.Query(ctx, listChatsWithParticipant, arg.UserID)
 	if err != nil {
@@ -349,16 +388,18 @@ SELECT
   m.message_id,
   m.sender_id,
   m.created_at,
-  m.cypher_text,
-  m.nonce
-
+  m.cypher_text
+  
 FROM chats c
 JOIN chat_participants cp
   ON cp.chat_id = c.chat_id
  AND cp.user_id = $1
 LEFT JOIN messages m
   ON m.message_id = c.last_message_id
-ORDER BY m.created_at DESC NULLS LAST
+ORDER BY
+  m.created_at DESC NULLS LAST,
+  c.last_message_id DESC,
+  c.chat_id DESC
 `
 
 type ListChatsWithUserParams struct {
@@ -371,7 +412,6 @@ type ListChatsWithUserRow struct {
 	SenderID   *int64             `json:"sender_id"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 	CypherText []byte             `json:"cypher_text"`
-	Nonce      []byte             `json:"nonce"`
 }
 
 // ListChatsWithUser
@@ -382,8 +422,7 @@ type ListChatsWithUserRow struct {
 //	  m.message_id,
 //	  m.sender_id,
 //	  m.created_at,
-//	  m.cypher_text,
-//	  m.nonce
+//	  m.cypher_text
 //
 //	FROM chats c
 //	JOIN chat_participants cp
@@ -391,7 +430,10 @@ type ListChatsWithUserRow struct {
 //	 AND cp.user_id = $1
 //	LEFT JOIN messages m
 //	  ON m.message_id = c.last_message_id
-//	ORDER BY m.created_at DESC NULLS LAST
+//	ORDER BY
+//	  m.created_at DESC NULLS LAST,
+//	  c.last_message_id DESC,
+//	  c.chat_id DESC
 func (q *Queries) ListChatsWithUser(ctx context.Context, arg ListChatsWithUserParams) ([]ListChatsWithUserRow, error) {
 	rows, err := q.db.Query(ctx, listChatsWithUser, arg.UserID)
 	if err != nil {
@@ -407,7 +449,6 @@ func (q *Queries) ListChatsWithUser(ctx context.Context, arg ListChatsWithUserPa
 			&i.SenderID,
 			&i.CreatedAt,
 			&i.CypherText,
-			&i.Nonce,
 		); err != nil {
 			return nil, err
 		}

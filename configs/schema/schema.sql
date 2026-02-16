@@ -7,7 +7,6 @@ CREATE TABLE users (
   first_name    TEXT         NOT NULL,
   last_name     TEXT         NOT NULL,
   password_hash TEXT         NOT NULL,
-  user_key      BYTEA        NOT NULL,
   pfp_url       TEXT,
   created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
@@ -42,7 +41,6 @@ CREATE TABLE messages (
   message_id  BIGSERIAL    PRIMARY KEY,
   chat_id     BIGINT       NOT NULL,
   cypher_text BYTEA        NOT NULL,
-  nonce       BYTEA        NOT NULL,
   sender_id   BIGINT       NOT NULL,
   created_at  TIMESTAMPTZ  NOT NULL DEFAULT now(),
 

@@ -16,10 +16,9 @@ INSERT INTO users (
     first_name,
     last_name,
     password_hash,
-    user_key,
     pfp_url
 ) VALUES (
-    @display_name, @first_name, @last_name, @password_hash, @user_key, @pfp_url
+    @display_name, @first_name, @last_name, @password_hash, @pfp_url
 )
 RETURNING user_id, display_name, pfp_url;
 
@@ -27,7 +26,3 @@ RETURNING user_id, display_name, pfp_url;
 UPDATE users
 SET pfp_url = $1
 WHERE user_id = $2;
-
--- name: FindUserKey :one
-SELECT user_key FROM users
-WHERE user_id = @user_id;

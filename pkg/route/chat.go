@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/astrokkidd/flick/pkg/crypto"
 	"github.com/astrokkidd/flick/pkg/database"
 	"github.com/astrokkidd/flick/pkg/identity"
 	"github.com/jackc/pgx/v5"
@@ -17,11 +18,10 @@ type Chat struct {
 }
 
 type MessageStructure struct {
-	MessageID  int64     `json:"message_id"`
-	SenderID   int64     `json:"sender_id"`
-	CreatedAt  time.Time `json:"created_at"`
-	CypherText []byte    `json:"cypher_text"`
-	Nonce      []byte    `json:"nonce"`
+	MessageID int64     `json:"message_id"`
+	SenderID  int64     `json:"sender_id"`
+	CreatedAt time.Time `json:"created_at"`
+	Plaintext string    `json:"plaintext"`
 }
 
 type ParticipantStructure struct {
@@ -32,9 +32,10 @@ type ParticipantStructure struct {
 }
 
 type ChatStructure struct {
-	ChatID       int64                  `json:"chat_id"`
-	LastMessage  *MessageStructure      `json:"last_message,omitempty"`
-	Participants []ParticipantStructure `json:"participants"`
+	ChatID         int64                  `json:"chat_id"`
+	LastMessage    *MessageStructure      `json:"last_message,omitempty"`
+	Participants   []ParticipantStructure `json:"participants"`
+	UnreadMessages int                    `json:"unread_messages"`
 }
 
 type ResponseStructure struct {
@@ -152,18 +153,31 @@ func (chat *Chat) GetChats(c echo.Context) error {
 	chatIDs := make([]int64, 0, len(chats))
 
 	for _, r := range chats {
-		cs := &ChatStructure{
-			ChatID:       r.ChatID,
-			Participants: []ParticipantStructure{},
+		numUnread, err := qtx.GetNumberUnreadMessages(ctx, database.GetNumberUnreadMessagesParams{
+			ChatID: r.ChatID,
+			UserID: uid,
+		})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusInternalServerError, "Failed to get number unread")
 		}
 
-		if r.MessageID != nil {
+		cs := &ChatStructure{
+			ChatID:         r.ChatID,
+			Participants:   []ParticipantStructure{},
+			UnreadMessages: int(numUnread),
+		}
+
+		if r.MessageID != nil && len(r.CypherText) > 0 {
+			plaintext, err := crypto.Decrypt(r.CypherText)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusInternalServerError, "decryption failed")
+			}
+
 			cs.LastMessage = &MessageStructure{
-				MessageID:  *r.MessageID,
-				SenderID:   *r.SenderID,
-				CreatedAt:  r.CreatedAt.Time,
-				CypherText: r.CypherText,
-				Nonce:      r.Nonce,
+				MessageID: *r.MessageID,
+				SenderID:  *r.SenderID,
+				CreatedAt: r.CreatedAt.Time,
+				Plaintext: string(plaintext),
 			}
 		}
 
@@ -214,8 +228,8 @@ func (chat *Chat) SetTypingStatus(c echo.Context) error {
 	uid := claims.ID()
 
 	var body struct {
-		ChatID   int64 `param:"id"`
-		IsTyping bool  `param:"status"`
+		ChatID   int64 `param:"chat_id"`
+		IsTyping bool  `param:"is_typing"`
 	}
 	if err := c.Bind(&body); err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, "invalid body")

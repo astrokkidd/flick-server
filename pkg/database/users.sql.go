@@ -15,10 +15,9 @@ INSERT INTO users (
     first_name,
     last_name,
     password_hash,
-    user_key,
     pfp_url
 ) VALUES (
-    $1, $2, $3, $4, $5, $6
+    $1, $2, $3, $4, $5
 )
 RETURNING user_id, display_name, pfp_url
 `
@@ -28,7 +27,6 @@ type CreateUserParams struct {
 	FirstName    string  `json:"first_name"`
 	LastName     string  `json:"last_name"`
 	PasswordHash string  `json:"password_hash"`
-	UserKey      []byte  `json:"user_key"`
 	PfpUrl       *string `json:"pfp_url"`
 }
 
@@ -45,10 +43,9 @@ type CreateUserRow struct {
 //	    first_name,
 //	    last_name,
 //	    password_hash,
-//	    user_key,
 //	    pfp_url
 //	) VALUES (
-//	    $1, $2, $3, $4, $5, $6
+//	    $1, $2, $3, $4, $5
 //	)
 //	RETURNING user_id, display_name, pfp_url
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
@@ -57,7 +54,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 		arg.FirstName,
 		arg.LastName,
 		arg.PasswordHash,
-		arg.UserKey,
 		arg.PfpUrl,
 	)
 	var i CreateUserRow
@@ -131,34 +127,14 @@ func (q *Queries) FindUserByID(ctx context.Context, arg FindUserByIDParams) (Fin
 	return i, err
 }
 
-const findUserKey = `-- name: FindUserKey :one
-SELECT user_key FROM users
-WHERE user_id = $1
-`
-
-type FindUserKeyParams struct {
-	UserID int64 `json:"user_id"`
-}
-
-// FindUserKey
-//
-//	SELECT user_key FROM users
-//	WHERE user_id = $1
-func (q *Queries) FindUserKey(ctx context.Context, arg FindUserKeyParams) ([]byte, error) {
-	row := q.db.QueryRow(ctx, findUserKey, arg.UserID)
-	var user_key []byte
-	err := row.Scan(&user_key)
-	return user_key, err
-}
-
 const listUsers = `-- name: ListUsers :many
-SELECT user_id, display_name, password_hash, first_name, pfp_url, last_name, created_at, user_key FROM users
+SELECT user_id, display_name, password_hash, first_name, pfp_url, last_name, created_at FROM users
 ORDER BY display_name
 `
 
 // ListUsers
 //
-//	SELECT user_id, display_name, password_hash, first_name, pfp_url, last_name, created_at, user_key FROM users
+//	SELECT user_id, display_name, password_hash, first_name, pfp_url, last_name, created_at FROM users
 //	ORDER BY display_name
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := q.db.Query(ctx, listUsers)
@@ -177,7 +153,6 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.PfpUrl,
 			&i.LastName,
 			&i.CreatedAt,
-			&i.UserKey,
 		); err != nil {
 			return nil, err
 		}
